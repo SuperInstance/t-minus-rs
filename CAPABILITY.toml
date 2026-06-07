@@ -1,0 +1,111 @@
+[crate]
+name = "t-minus-rs"
+version = "0.1.0"
+layer = "temporal"
+description = "Countdown/timer primitives with scheduling, deadline propagation, and backpressure"
+
+[provides]
+capabilities = [
+  { name = "cron_scheduling", type = "module", description = "Cron expression parser and next-fire-time computation (5-field: min hour dom month dow)" },
+  { name = "deadline_propagation", type = "module", description = "Hierarchical deadline tree with parent-child propagation, cancellation cascading, and status tracking" },
+  { name = "backpressure", type = "module", description = "Token bucket and leaky bucket rate limiters that respect hard deadlines" },
+  { name = "cron_expression", type = "struct", description = "Parsed cron expression with field matching and next-fire computation" },
+  { name = "deadline_node", type = "struct", description = "Tree node for deadline propagation with add_child, tick, and cancel operations" },
+  { name = "token_bucket", type = "struct", description = "Token bucket rate limiter with configurable burst, refill, and deadline cutoff" }
+]
+exports = [
+  "schedule::CronExpr",
+  "schedule::CronField",
+  "schedule::parse_cron",
+  "deadline::DeadlineNode",
+  "deadline::DeadlineStatus",
+  "backpressure::TokenBucket",
+  "backpressure::LeakyBucket"
+]
+
+[requires]
+optional = [
+  { crate = "conservation-law-rs", reason = "Energy-aware deadline enforcement", import = "hamiltonian::Hamiltonian" },
+  { crate = "spectral-fleet-rs", reason = "Eigenvalue-weighted task scheduling", import = "scheduling::EigenmodeSchedule" },
+  { crate = "fleet-warden-rs", reason = "System health monitoring affects scheduling decisions", import = "scanner::full_scan" }
+]
+
+[integrates.conservation_rhythm]
+crate = "conservation-law-rs"
+module = "deadline"
+description = "Energy-aware deadline enforcement: limit computation steps by available conservation budget"
+human_steps = [
+  "1. cargo add conservation-law",
+  "2. Query energy budget before creating deadline nodes",
+  "3. Set deadline durations proportional to available energy"
+]
+agent_steps = [
+  "Query conservation-law for current energy budget",
+  "Create DeadlineNode with duration scaled by available energy",
+  "Cancel child deadlines when energy drops below threshold"
+]
+
+[integrates.spectral_fleet]
+crate = "spectral-fleet-rs"
+module = "schedule"
+description = "Eigenvalue-weighted scheduling: use spectral priorities to order timed tasks"
+human_steps = [
+  "1. cargo add spectral-fleet",
+  "2. Compute eigenmode priorities for task ordering",
+  "3. Wire EigenmodeSchedule output into cron task priorities"
+]
+agent_steps = [
+  "Compute eigenmode priorities via spectral-fleet",
+  "Assign deadline budgets proportional to eigenvalue magnitude",
+  "Use backpressure token bucket to rate-limit spectral computations"
+]
+
+[integrates.fleet_warden]
+crate = "fleet-warden-rs"
+module = "backpressure"
+description = "System health monitoring affects rate limiting: reduce token bucket rates when disk is low"
+human_steps = [
+  "1. cargo add fleet-warden",
+  "2. Query disk budget to determine available resources",
+  "3. Adjust backpressure refill rates based on system health"
+]
+agent_steps = [
+  "Query fleet-warden disk budget status",
+  "Reduce TokenBucket refill rate when disk usage exceeds threshold",
+  "Apply stricter backpressure during cleanup operations"
+]
+
+[onboarding.human]
+quick_start = "cargo add t-minus-rs"
+example = """
+use t_minus_rs::schedule::parse_cron;
+use t_minus_rs::deadline::{DeadlineNode, DeadlineStatus};
+use t_minus_rs::backpressure::TokenBucket;
+use std::time::Duration;
+
+// Cron scheduling
+let expr = parse_cron(\"0 18 * * 5\").unwrap(); // Every Friday at 6PM
+
+// Deadline tree
+let parent = DeadlineNode::new(0, Some(Duration::from_secs(3600)));
+parent.add_child(DeadlineNode::new(1, Some(Duration::from_secs(1800))));
+
+// Rate limiting
+let bucket = TokenBucket::new(100.0, 10.0, Some(Duration::from_secs(60)));
+assert!(bucket.try_acquire(1.0));
+"""
+
+[onboarding.agent]
+context_needed = ["cron_expressions", "deadline_hierarchy", "rate_limit_burst", "rate_limit_refill", "hard_deadline"]
+api_surface = [
+  "parse_cron(expr) -> Result<CronExpr>",
+  "CronExpr::next_fire(now) -> Option<DateTime>",
+  "DeadlineNode::new(id, deadline_duration)",
+  "DeadlineNode::add_child(child)",
+  "DeadlineNode::tick()",
+  "DeadlineNode::cancel()",
+  "TokenBucket::new(max_tokens, refill_rate, deadline)",
+  "TokenBucket::try_acquire(count) -> bool",
+  "LeakyBucket::new(rate, capacity, deadline)"
+]
+integration_pattern = "Parse cron expressions for recurring tasks, build deadline trees for hierarchical time management, apply backpressure rate limiters to prevent overload. Combine: schedule tasks via cron, propagate deadlines through tree, rate-limit execution with token bucket."
