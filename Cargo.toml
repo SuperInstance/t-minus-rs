@@ -1,0 +1,9 @@
+[package]
+name = "t-minus-rs"
+version = "0.1.0"
+edition = "2021"
+description = "Countdown/timer primitives with scheduling, deadline propagation, and backpressure"
+
+[dependencies]
+
+[dev-dependencies]
